@@ -1,0 +1,83 @@
+{{define "content"}}
+<div class="max-w-3xl mx-auto space-y-5">
+  <!-- 返回项目链接 -->
+  <div class="flex items-center justify-between p-2.5 rounded-xl nd-surface">
+    <a href="/projects/{{.Project.ID}}/files" class="btn btn-ghost btn-xs h-7 min-h-0 gap-1 rounded-lg">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+      返回 {{.Project.Name}}
+    </a>
+    <span class="text-xs text-base-content/50 font-medium">项目全局设置</span>
+  </div>
+
+  <!-- 项目基本设置 -->
+  <div class="rounded-xl nd-surface p-5 sm:p-7">
+    <h2 class="text-sm font-bold tracking-tight mb-4 text-base-content">基本设置</h2>
+    <form action="/projects/{{.Project.ID}}/update" method="POST" class="space-y-4"
+          x-data="{ selectedColor: '{{.Project.Color}}' }">
+      <div class="form-control">
+        <label class="label"><span class="label-text text-xs font-semibold">项目名称</span></label>
+        <input type="text" name="name" value="{{.Project.Name}}" required maxlength="64" placeholder="输入项目名称"
+               class="input input-bordered input-sm w-full focus:input-primary" />
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text text-xs font-semibold">项目简介</span></label>
+        <textarea name="description" rows="3" placeholder="输入项目目标与说明（可选）" class="textarea textarea-bordered w-full text-xs">{{.Project.Description}}</textarea>
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text text-xs font-semibold">项目主题色</span></label>
+        <input type="hidden" name="color" :value="selectedColor" />
+        <div class="flex flex-wrap gap-2 pt-1">
+          {{range .PaletteColors}}
+          <button type="button" @click="selectedColor = '{{.}}'"
+                  class="w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center"
+                  :class="selectedColor === '{{.}}' ? 'border-base-content scale-110 shadow-xs' : 'border-transparent hover:scale-105'"
+                  style="background-color: {{.}}">
+            <svg x-show="selectedColor === '{{.}}'" class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+          {{end}}
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button type="submit" class="btn btn-primary btn-xs h-8 px-5 rounded-lg shadow-xs">保存修改</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 邀请码管理 -->
+  <div class="rounded-xl nd-surface p-5 sm:p-7">
+    <h2 class="text-sm font-bold tracking-tight mb-1 text-base-content">项目邀请码</h2>
+    <p class="text-[11px] text-base-content/50 mb-3.5">
+      新成员可通过输入此邀请码直接加入项目。若邀请码发生泄漏，可立即重置。
+    </p>
+
+    <div class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg border border-base-300">
+      <div class="flex items-center gap-2 text-xs">
+        <span class="font-medium text-base-content/70">当前邀请码：</span>
+        <span class="font-mono text-base font-bold tracking-wider text-primary select-all">{{.Project.InviteCode}}</span>
+      </div>
+      <form action="/projects/{{.Project.ID}}/invite/reset" method="POST"
+            onsubmit="return confirm('确定重置邀请码吗？旧邀请码将立即失效。');" class="m-0">
+        <button type="submit" class="btn btn-outline btn-xs h-7 min-h-0 rounded-md">重置邀请码</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 危险区域：删除项目 -->
+  <div class="rounded-xl border border-error/30 p-5 sm:p-7 bg-error/5">
+    <h2 class="text-sm font-bold text-error tracking-tight mb-1">危险操作区域</h2>
+    <p class="text-[11px] text-base-content/60 mb-3.5">
+      删除项目将彻底清除该项目下的所有文件夹、文档、上传资源、日历记录、看板卡片及成员关系，此操作不可撤销。
+    </p>
+
+    <form action="/projects/{{.Project.ID}}/delete" method="POST"
+          onsubmit="return confirm('警告：确定要彻底删除该项目吗？所有数据将永久丢失，此操作不可撤销！');" class="m-0">
+      <button type="submit" class="btn btn-error btn-xs h-8 px-4 rounded-lg text-white">彻底删除此项目</button>
+    </form>
+  </div>
+</div>
+{{end}}

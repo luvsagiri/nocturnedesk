@@ -1,0 +1,33 @@
+# Data and uploads
+data/
+*.db
+*.db-wal
+*.db-shm
+*.key
+
+# Specification files
+SPEC.md
+spec.md
+SPEC*.md
+spec*.md
+
+# Binaries and build outputs
+*.exe
+*.exe~
+nocturnedesk
+build/
+dist/
+
+# Environment files
+.env
+.env.local
+
+# Temporary files and screenshots
+*.png
+*.jpg
+*.jpeg
+*.mp4
+*.zip
+*.tar.gz
+*.test
+node_modules/

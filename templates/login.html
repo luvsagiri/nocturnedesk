@@ -1,0 +1,44 @@
+{{define "content"}}
+<div class="min-h-[70vh] flex items-center justify-center">
+  <div class="card w-full max-w-md bg-base-100 shadow-xl border border-base-300">
+    <div class="card-body">
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-600 text-white font-black text-xl mb-3 shadow">
+          ND
+        </div>
+        <h2 class="text-2xl font-bold tracking-tight">登录 NocturneDesk</h2>
+        <p class="text-sm text-base-content/60 mt-1">轻量内网团队协作台</p>
+      </div>
+
+      <form action="/login" method="POST" class="space-y-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">用户名</span>
+          </label>
+          <input type="text" name="username" required autofocus placeholder="用户名"
+                 class="input input-bordered w-full focus:input-primary" />
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">密码</span>
+          </label>
+          <input type="password" name="password" required placeholder="密码"
+                 class="input input-bordered w-full focus:input-primary" />
+        </div>
+
+        <div class="form-control mt-6">
+          <button type="submit" class="btn btn-primary w-full shadow">登 录</button>
+        </div>
+      </form>
+
+      <div class="divider my-4 text-xs text-base-content/40">或者</div>
+
+      <div class="text-center text-sm">
+        <span class="text-base-content/70">还没有账号？</span>
+        <a href="/register" class="link link-primary font-medium ml-1">免费注册</a>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}

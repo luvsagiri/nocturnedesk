@@ -1,0 +1,772 @@
+{{define "head"}}
+<link rel="stylesheet" href="/static/vendor/highlight.min.css?v=1.0.0">
+<script src="/static/vendor/marked.min.js?v=1.0.0"></script>
+<script src="/static/vendor/highlight.min.js?v=1.0.0"></script>
+{{end}}
+
+{{define "content"}}
+<div class="h-full flex flex-col space-y-3 min-h-0 overflow-hidden" x-data="projectFilesComponent()">
+  <!-- 安全存储所有文档原始 Markdown 的容器，避免在 HTML 属性中直接嵌入换行和反引号 -->
+  <textarea id="initial-doc-markdown" class="hidden">{{if and .SelectedItem .SelectedItem.BodyHTML}}{{.SelectedItem.BodyHTML}}{{end}}</textarea>
+  {{range .Items}}
+    {{if eq .Kind "doc"}}
+      <textarea id="doc-body-{{.ID}}" class="hidden">{{if .BodyHTML}}{{.BodyHTML}}{{end}}</textarea>
+    {{end}}
+  {{end}}
+
+  <!-- 面包屑导航 + 筛选 + 核心操作工具栏 -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2.5 rounded-xl nd-surface flex-shrink-0">
+    <div class="text-xs breadcrumbs py-0">
+      <ul>
+        <li>
+          <a href="/projects/{{.Project.ID}}/files" class="flex items-center gap-1 font-medium {{if not .CurrentFolder}}text-primary font-bold{{end}}">
+            <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+            根目录
+          </a>
+        </li>
+        {{range .Breadcrumbs}}
+          <li>
+            <a href="/projects/{{$.Project.ID}}/files?folder={{.ID}}" class="font-medium {{if eq $.CurrentFolder.ID .ID}}text-primary font-bold{{end}}">
+              {{.Name}}
+            </a>
+          </li>
+        {{end}}
+      </ul>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- 类别筛选 -->
+      <div class="join bg-base-200/50 p-0.5 rounded-lg border border-base-300/50">
+        <a href="/projects/{{.Project.ID}}/files?filter=all{{if .CurrentFolder}}&folder={{.CurrentFolder.ID}}{{end}}"
+           class="btn btn-xs join-item h-6 min-h-0 text-[11px] px-2.5 rounded-md {{if or (eq .Filter "all") (not .Filter)}}btn-active bg-base-100 font-bold shadow-xs{{else}}btn-ghost{{end}}">全部</a>
+        <a href="/projects/{{.Project.ID}}/files?filter=doc{{if .CurrentFolder}}&folder={{.CurrentFolder.ID}}{{end}}"
+           class="btn btn-xs join-item h-6 min-h-0 text-[11px] px-2.5 rounded-md {{if eq .Filter "doc"}}btn-active bg-base-100 font-bold shadow-xs{{else}}btn-ghost{{end}}">文档</a>
+        <a href="/projects/{{.Project.ID}}/files?filter=file{{if .CurrentFolder}}&folder={{.CurrentFolder.ID}}{{end}}"
+           class="btn btn-xs join-item h-6 min-h-0 text-[11px] px-2.5 rounded-md {{if eq .Filter "file"}}btn-active bg-base-100 font-bold shadow-xs{{else}}btn-ghost{{end}}">资源</a>
+      </div>
+
+      <div class="divider divider-horizontal my-1 mx-0"></div>
+
+      <!-- 新建文件夹 -->
+      <button type="button" class="btn btn-outline btn-xs h-7 min-h-[28px] gap-1 rounded-lg" @click="newFolderModal = true">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
+        新建文件夹
+      </button>
+
+      <!-- 上传资源 -->
+      <button type="button" class="btn btn-outline btn-xs h-7 min-h-[28px] gap-1 rounded-lg" @click="uploadModal = true; uploadError = ''; uploadProgress = 0; uploadFile = null;">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+        上传资源
+      </button>
+
+      <!-- 新建文档 -->
+      <a href="/projects/{{.Project.ID}}/docs/new{{if .CurrentFolder}}?folder={{.CurrentFolder.ID}}{{end}}"
+         class="btn btn-primary btn-xs h-7 min-h-[28px] gap-1 rounded-lg shadow-xs">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+        新建文档
+      </a>
+    </div>
+  </div>
+
+  <!-- 经典三栏顶满视口布局：左目录 ｜ 中正文 ｜ 右大纲 各自独立卡片、各自独立滚动 (overscroll-contain，滚轮绝不联动) -->
+  <div class="flex-1 flex flex-col lg:flex-row items-stretch gap-3.5 relative min-h-0 overflow-hidden">
+    
+    <!-- 面板 1 (左): 文件夹与条目一体化文件树面板 (36px 精确等高行高，仅预览绝不误触发下载) -->
+    <div class="rounded-xl nd-surface flex flex-col h-full min-h-0 flex-shrink-0 shadow-xs overflow-hidden"
+         :style="'width: ' + (window.innerWidth >= 1024 ? sidebarWidth + 'px' : '100%')">
+      <!-- 列表标题 -->
+      <div class="p-2.5 px-3 border-b border-base-200 flex items-center justify-between text-xs font-bold text-base-content/70 bg-base-200/40 flex-shrink-0">
+        <span class="flex items-center gap-1.5 truncate">
+          <svg class="w-3.5 h-3.5 opacity-60 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+          <span class="truncate">{{if .CurrentFolder}}{{.CurrentFolder.Name}}{{else}}根目录{{end}}</span>
+        </span>
+        <span class="text-[10px] font-mono text-base-content/40 flex-shrink-0">{{len .Items}} 项</span>
+      </div>
+
+      <!-- 文件树列表 (统一 36px 行高，仅超出时内部独立滚动，滚动不联动正文) -->
+      <div class="divide-y divide-base-200/40 overflow-y-auto flex-1 min-h-0 overscroll-contain">
+        <!-- 返回上一级 (若在子文件夹内) -->
+        {{if .CurrentFolder}}
+        <a href="/projects/{{.Project.ID}}/files{{if .CurrentFolder.ParentID}}?folder={{.CurrentFolder.ParentID}}{{end}}"
+           class="h-9 min-h-[36px] px-3 flex items-center gap-2 hover:bg-base-200/50 text-xs font-semibold text-primary transition-colors select-none">
+          <svg class="w-3.5 h-3.5 opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" /></svg>
+          <span class="truncate">.. 返回上一级</span>
+        </a>
+        {{end}}
+
+        <!-- 文件夹列表项 (统一 36px 等高排版) -->
+        {{range .Subfolders}}
+        <div class="h-9 min-h-[36px] px-3 flex items-center justify-between gap-2 hover:bg-base-200/50 transition-colors group select-none">
+          <a href="/projects/{{$.Project.ID}}/files?folder={{.ID}}" class="flex items-center gap-2 flex-1 min-w-0">
+            <svg class="w-4 h-4 text-warning flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
+            <span class="font-semibold text-xs truncate group-hover:text-primary transition-colors">{{.Name}}</span>
+          </a>
+
+          <div class="dropdown dropdown-end flex-shrink-0">
+            <label tabindex="0" class="btn btn-ghost btn-xs btn-square opacity-30 group-hover:opacity-100 h-5 w-5 min-h-0">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+            </label>
+            <ul tabindex="0" class="dropdown-content menu p-1.5 shadow-xl bg-base-100 rounded-xl w-32 border border-base-300 text-xs z-30">
+              <li><a @click="renameFolderID = {{.ID}}; renameFolderName = '{{.Name}}'; renameFolderModal = true">重命名</a></li>
+              <li><a @click="moveFolderID = {{.ID}}; moveFolderName = '{{.Name}}'; moveFolderModal = true">移动</a></li>
+              <li>
+                <form action="/folders/{{.ID}}/delete" method="POST" onsubmit="return confirm('警告：删除文件夹将连带删除其下所有子文件夹、文档与资源文件！确定删除吗？');">
+                  <button type="submit" class="text-error w-full text-left py-1">删除文件夹</button>
+                </form>
+              </li>
+            </ul>
+          </div>
+        </div>
+        {{end}}
+
+        <!-- 文件与文档项 (统一 36px 等高排版，纯预览，绝对不触发下载) -->
+        {{range .Items}}
+        <div class="h-9 min-h-[36px] px-3 flex items-center justify-between gap-2 cursor-pointer hover:bg-base-200/50 transition-all select-none"
+             :class="{ 'bg-primary/10 border-l-2 border-primary': selectedID === {{.ID}} }"
+             @click="selectItem(
+               {{.ID}},
+               '{{.Kind}}',
+               '{{.Title}}',
+               '{{if .OriginalName}}{{.OriginalName}}{{end}}',
+               '{{if .SizeBytes}}{{humanizeBytes .SizeBytes}}{{else}}Markdown{{end}}',
+               '{{.CreatorName}}',
+               '{{.CreatorColor}}',
+               '{{formatDateTime .UpdatedAt}}',
+               {{if .IsImage}}true{{else}}false{{end}},
+               {{if .IsPDF}}true{{else}}false{{end}},
+               {{if .IsVideo}}true{{else}}false{{end}},
+               {{if .IsAudio}}true{{else}}false{{end}},
+               {{if .IsTextOrMarkdown}}true{{else}}false{{end}},
+               {{if .IsMarkdown}}true{{else}}false{{end}}
+             )">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
+            <div class="flex-shrink-0">
+              {{if eq .Kind "doc"}}
+                <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              {{else if .IsMarkdown}}
+                <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+              {{else if .IsTextOrMarkdown}}
+                <svg class="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+              {{else if .IsImage}}
+                <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              {{else if .IsPDF}}
+                <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+              {{else if .IsVideo}}
+                <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+              {{else if .IsAudio}}
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
+              {{else}}
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+              {{end}}
+            </div>
+            <div class="text-xs font-medium text-base-content truncate">{{.Title}}</div>
+          </div>
+          <span class="text-[10px] text-base-content/40 font-mono flex-shrink-0">
+            {{if .SizeBytes}}{{humanizeBytes .SizeBytes}}{{else}}MD{{end}}
+          </span>
+        </div>
+        {{end}}
+
+        {{if and (not .Subfolders) (not .Items)}}
+        <div class="py-20 text-center text-base-content/30 text-xs">
+          <span>暂无文件</span>
+        </div>
+        {{end}}
+      </div>
+    </div>
+
+    <!-- 可拖拽分割条 (桌面端) -->
+    <div class="gutter-col hidden lg:block"
+         @mousedown="startResizing($event)"
+         title="按住拖拽调节目录栏宽度"></div>
+
+    <!-- 面板 2 (中): 正文阅读/编辑与多媒体预览舞台 (独立正文滚动视口，滚轮看内容不联动左右) -->
+    <div class="rounded-xl nd-surface flex-1 min-w-0 flex flex-col h-full min-h-0 shadow-xs overflow-hidden">
+      <!-- 预览区顶部条 -->
+      <div x-show="selectedID > 0" class="p-2.5 px-4 border-b border-base-200 flex items-center justify-between gap-3 bg-base-200/20 flex-shrink-0">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <span class="badge badge-xs text-white" :class="selectedKind === 'doc' ? 'bg-indigo-500' : (selectedIsTextOrMD ? 'bg-cyan-600' : 'bg-emerald-500')"
+                x-text="selectedKind === 'doc' ? '文档' : (selectedIsMD ? 'Markdown' : (selectedIsTextOrMD ? '代码' : '资源'))"></span>
+          <h2 class="font-bold text-xs text-base-content truncate" x-text="selectedTitle"></h2>
+          <span class="text-[11px] text-base-content/40 hidden sm:inline" x-text="'· ' + selectedSize"></span>
+        </div>
+
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <!-- 文档下载为 .md 文件 -->
+          <a x-show="selectedKind === 'doc'" :href="'/docs/' + selectedID + '/download'" class="btn btn-outline btn-xs h-7 min-h-0 rounded-md gap-1" title="下载为 .md 文件">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            下载 .md
+          </a>
+
+          <!-- Markdown 编辑/阅读切换 (支持内部 doc 及所有上传的文本/代码/markdown 文件在线就地编辑，问题3解决) -->
+          <button x-show="selectedKind === 'doc' || selectedIsTextOrMD" type="button" class="btn btn-outline btn-xs h-7 min-h-0 rounded-md gap-1"
+                  @click="isEditingDoc = !isEditingDoc; if(isEditingDoc && !activeMarkdownText && fileTextContent){ activeMarkdownText = fileTextContent; } if(!isEditingDoc){ $nextTick(() => renderMarkdown(activeMarkdownText)); }">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+            <span x-text="isEditingDoc ? '返回阅读' : '编辑文档'"></span>
+          </button>
+
+          <!-- 资源下载 -->
+          <a x-show="selectedKind === 'file'" :href="'/files/' + selectedID + '?download=1'" class="btn btn-outline btn-xs h-7 min-h-0 rounded-md gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            下载原文件
+          </a>
+
+          <!-- 删除 -->
+          <form :action="'/items/' + selectedID + '/delete'" method="POST" onsubmit="return confirm('确定要删除此条目吗？');" class="m-0">
+            <button type="submit" class="btn btn-ghost btn-xs btn-square text-error h-7 w-7 min-h-0" title="删除条目">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- 舞台正文容器 (独立在此容器中上下滚动，overscroll-contain 保证滚轮绝不联动) -->
+      <div class="flex-1 p-5 flex flex-col justify-start overflow-hidden min-h-0 bg-base-100">
+        <!-- 状态 0: 未选中任何内容 -->
+        <div x-show="selectedID <= 0" class="py-28 text-center text-base-content/40 my-auto">
+          <svg class="w-12 h-12 mx-auto mb-3 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          <p class="text-xs font-semibold">从左侧列表选择文档或文件</p>
+          <p class="text-[11px] text-base-content/30 mt-1">支持 Typora 级排版、代码语法彩色高亮、音视频/PDF/图片实时就地预览</p>
+        </div>
+
+        <!-- 状态 1: 文档 (doc) 或 上传的 .md 资源文件展示 (阅读模式) -->
+        <div x-show="selectedID > 0 && !isEditingDoc && (selectedKind === 'doc' || (selectedKind === 'file' && selectedIsMD))" class="flex-1 flex flex-col overflow-hidden min-h-0 h-full">
+          <div class="flex-1 overflow-y-auto pr-3 max-w-full overflow-x-hidden min-h-0 h-full overscroll-contain" id="doc-scroll-container">
+            <div class="flex items-center gap-2.5 text-[11px] text-base-content/50 pb-2.5 border-b border-base-200">
+              <span class="w-2 h-2 rounded-full" :style="'background-color: ' + selectedColor"></span>
+              <span x-text="selectedCreator"></span>
+              <span>·</span>
+              <span>更新于 <span x-text="selectedDate"></span></span>
+            </div>
+            <!-- Typora 风格渲染目标 -->
+            <div id="markdown-render-output" class="markdown-body prose max-w-none text-sm leading-relaxed text-base-content pt-4 break-words"></div>
+          </div>
+        </div>
+
+        <!-- 状态 2: 纯文本/代码类文件浏览窗口 (阅读模式，带 Highlight.js 语法着色) -->
+        <div x-show="selectedID > 0 && !isEditingDoc && selectedKind === 'file' && selectedIsTextOrMD && !selectedIsMD" class="flex-1 flex flex-col overflow-hidden space-y-2 min-h-0 h-full">
+          <div class="flex items-center justify-between text-xs text-base-content/50 pb-2 border-b border-base-200 flex-shrink-0">
+            <span class="font-mono text-[11px]" x-text="'文本预览模式 · ' + selectedOriginalName"></span>
+            <span class="text-[10px]" x-text="isLoadingFileText ? '正在加载...' : '已加载'"></span>
+          </div>
+          <pre class="p-4 rounded-xl text-xs font-mono overflow-auto bg-[#282c34] text-[#abb2bf] flex-1 leading-relaxed break-words whitespace-pre-wrap select-text min-h-0 h-full overscroll-contain"><code x-html="fileTextContent"></code></pre>
+        </div>
+
+        <!-- 状态 3: 通用就地编辑模式 (支持 doc 与所有上传的 .md/.txt/代码等在线编辑，问题3解决) -->
+        <div x-show="selectedID > 0 && isEditingDoc && (selectedKind === 'doc' || selectedIsTextOrMD)" class="flex-1 flex flex-col space-y-2.5 overflow-hidden min-h-0 h-full">
+          <form :action="'/items/' + selectedID + '/update'" method="POST" class="flex-1 flex flex-col space-y-2 min-h-0 h-full">
+            <input type="text" name="title" :value="selectedTitle" required placeholder="输入文档标题"
+                   class="input input-bordered input-sm w-full font-bold text-sm" />
+
+            <div class="flex items-center gap-1 p-1 bg-base-200/50 rounded-md border border-base-300 text-xs flex-wrap flex-shrink-0">
+              <button type="button" class="btn btn-ghost btn-xs px-2 h-6 min-h-0 font-bold"
+                      @click="const t = $el.closest('form').querySelector('textarea'); const s = t.selectionStart; t.value = t.value.slice(0, s) + '## ' + t.value.slice(s); t.focus();">H2</button>
+              <button type="button" class="btn btn-ghost btn-xs px-2 h-6 min-h-0 font-bold"
+                      @click="const t = $el.closest('form').querySelector('textarea'); const s = t.selectionStart; t.value = t.value.slice(0, s) + '### ' + t.value.slice(s); t.focus();">H3</button>
+              <button type="button" class="btn btn-ghost btn-xs px-2 h-6 min-h-0 font-bold"
+                      @click="const t = $el.closest('form').querySelector('textarea'); const s = t.selectionStart; t.value = t.value.slice(0, s) + '**粗体**' + t.value.slice(s); t.focus();">B</button>
+              <button type="button" class="btn btn-ghost btn-xs px-2 h-6 min-h-0 italic"
+                      @click="const t = $el.closest('form').querySelector('textarea'); const s = t.selectionStart; t.value = t.value.slice(0, s) + '*斜体*' + t.value.slice(s); t.focus();">I</button>
+              <button type="button" class="btn btn-ghost btn-xs px-2 h-6 min-h-0 font-mono"
+                      @click="const t = $el.closest('form').querySelector('textarea'); const s = t.selectionStart; t.value = t.value.slice(0, s) + '`代码`' + t.value.slice(s); t.focus();">&lt;/&gt;</button>
+              <button type="button" class="btn btn-ghost btn-xs px-2 h-6 min-h-0"
+                      @click="const t = $el.closest('form').querySelector('textarea'); const s = t.selectionStart; t.value = t.value.slice(0, s) + '- 列表项\n' + t.value.slice(s); t.focus();">• 列表</button>
+              <button type="button" class="btn btn-ghost btn-xs px-2 h-6 min-h-0"
+                      @click="const t = $el.closest('form').querySelector('textarea'); const s = t.selectionStart; t.value = t.value.slice(0, s) + '[链接描述](url)' + t.value.slice(s); t.focus();">链接</button>
+            </div>
+
+            <textarea name="body_html" required placeholder="编写 Markdown / 文本内容..."
+                      x-model="activeMarkdownText"
+                      class="textarea textarea-bordered w-full flex-1 font-mono text-xs leading-relaxed focus:textarea-primary min-h-0 resize-none"></textarea>
+
+            <div class="flex justify-end gap-2 pt-1 flex-shrink-0">
+              <button type="button" class="btn btn-ghost btn-xs" @click="isEditingDoc = false; refreshStage();">取消</button>
+              <button type="submit" class="btn btn-primary btn-xs px-4">保存修改</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- 状态 3: 图片预览 -->
+        <div x-show="selectedID > 0 && selectedKind === 'file' && selectedIsImage" class="flex flex-col items-center justify-center flex-1 py-4 overflow-auto min-h-0">
+          <img :src="'/files/' + selectedID" :alt="selectedTitle"
+               class="max-w-full max-h-[58vh] object-contain rounded-lg shadow-md border border-base-300" />
+          <div class="text-[11px] text-base-content/40 mt-3" x-text="selectedTitle + ' (' + selectedSize + ')'"></div>
+        </div>
+
+        <!-- 状态 4: PDF 预览 (仅当 explicitly isPDF 时绑定并渲染，pdfSrc 为空绝不乱加载任何二进制文件) -->
+        <div x-show="selectedID > 0 && selectedKind === 'file' && selectedIsPDF" class="w-full flex-1 h-full min-h-0 rounded-lg overflow-hidden border border-base-300 shadow-xs">
+          <iframe :src="pdfSrc" class="w-full h-full"></iframe>
+        </div>
+
+        <!-- 状态 5: 视频播放器 (自适应包裹容器，底部控制条完整呈现无裁剪) -->
+        <template x-if="selectedID > 0 && selectedKind === 'file' && selectedIsVideo">
+          <div class="flex flex-col items-center justify-center flex-1 min-h-0 w-full h-full p-2">
+            <div class="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
+              <video id="doc-stage-video" :src="'/files/' + selectedID" controls preload="auto" playsinline
+                     class="max-w-full max-h-full object-contain rounded-lg shadow-md bg-black"></video>
+            </div>
+            <div class="text-[11px] text-base-content/50 mt-2 font-medium flex-shrink-0" x-text="selectedTitle + ' (' + selectedSize + ')'"></div>
+          </div>
+        </template>
+
+        <!-- 状态 6: 音频播放器 (动态绑定 audioSrc，preload=none，无自动播放无声音重叠，问题1解决) -->
+        <template x-if="selectedID > 0 && selectedKind === 'file' && selectedIsAudio">
+          <div class="flex flex-col items-center justify-center flex-1 py-12 min-h-0 w-full">
+            <div class="p-6 rounded-2xl bg-base-200/50 border border-base-300 text-center max-w-sm w-full space-y-4">
+              <svg class="w-10 h-10 mx-auto text-primary opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
+              <h3 class="font-bold text-sm truncate" x-text="selectedTitle"></h3>
+              <audio id="doc-stage-audio" :src="'/files/' + selectedID" controls preload="auto" class="w-full"></audio>
+            </div>
+          </div>
+        </template>
+
+        <!-- 状态 7: 其它普通文件 (压缩包等) -->
+        <div x-show="selectedID > 0 && selectedKind === 'file' && !selectedIsImage && !selectedIsPDF && !selectedIsVideo && !selectedIsAudio && !selectedIsTextOrMD" class="flex flex-col items-center justify-center flex-1 py-12 min-h-0">
+          <div class="p-8 rounded-2xl bg-base-200/40 border border-base-300 text-center max-w-sm w-full space-y-4">
+            <svg class="w-12 h-12 mx-auto text-base-content/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+            <div>
+              <h3 class="font-bold text-sm text-base-content truncate" x-text="selectedTitle"></h3>
+              <p class="text-xs text-base-content/50 mt-1" x-text="'大小: ' + selectedSize"></p>
+            </div>
+            <a :href="'/files/' + selectedID + '?download=1'" class="btn btn-primary btn-sm rounded-lg w-full">下载该文件</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 面板 3 (右): Typora 风格多层级大纲目录面板 (带引导线与层级缩进，独立滚动容器，overscroll-contain) -->
+    <div x-show="selectedID > 0 && (selectedKind === 'doc' || (selectedKind === 'file' && selectedIsMD))"
+         class="w-60 xl:w-64 flex-shrink-0 rounded-xl nd-surface hidden lg:flex flex-col h-full min-h-0 shadow-xs overflow-hidden">
+      <div class="p-2.5 px-3 border-b border-base-200 flex items-center justify-between text-xs font-bold text-base-content/70 bg-base-200/40 flex-shrink-0">
+        <span class="flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+          <span>大纲目录</span>
+        </span>
+        <span class="badge badge-xs badge-ghost font-mono text-[10px]" x-text="headings.length + ' 项'"></span>
+      </div>
+
+      <!-- 大纲列表 (Typora 级多层次嵌套引导线，独立滚动，绝不随正文滚轮跑偏) -->
+      <div class="flex-1 overflow-y-auto min-h-0 p-2.5 space-y-1 text-xs overscroll-contain">
+        <template x-if="headings.length === 0">
+          <div class="py-12 text-center text-[11px] text-base-content/30 italic">暂无标题层级</div>
+        </template>
+        <template x-for="item in headings" :key="item.id">
+          <a href="javascript:void(0)"
+             @click="scrollToHeading(item.id)"
+             class="block truncate text-base-content/75 hover:text-primary hover:bg-base-200/60 transition-all py-1 px-1.5 rounded-md flex items-center gap-1.5"
+             :class="{
+               'font-bold text-base-content border-l-2 border-primary text-xs pl-2 bg-base-200/30': item.level === 1,
+               'pl-4 text-base-content/85 text-[11px] border-l border-base-300': item.level === 2,
+               'pl-7 text-base-content/65 text-[11px] border-l border-base-200': item.level === 3,
+               'pl-9 text-base-content/50 text-[10px]': item.level >= 4
+             }">
+            <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  :class="{
+                    'bg-primary': item.level === 1,
+                    'bg-base-content/40': item.level === 2,
+                    'bg-base-content/20': item.level >= 3
+                  }"></span>
+            <span class="truncate" x-text="item.text"></span>
+          </a>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 1: 新建文件夹 Modal -->
+  <div class="modal modal-bottom sm:modal-middle" :class="{ 'modal-open': newFolderModal }">
+    <div class="modal-box rounded-2xl border border-base-300 p-6">
+      <h3 class="font-bold text-base mb-4">新建文件夹</h3>
+      <form action="/projects/{{.Project.ID}}/folders" method="POST" class="space-y-4">
+        {{if .CurrentFolder}}
+          <input type="hidden" name="parent_id" value="{{.CurrentFolder.ID}}" />
+        {{end}}
+        <div class="form-control">
+          <label class="label"><span class="label-text text-xs font-semibold">文件夹名称</span></label>
+          <input type="text" name="name" required placeholder="输入文件夹名称" maxlength="64"
+                 class="input input-bordered input-sm w-full" />
+        </div>
+        <div class="modal-action">
+          <button type="button" class="btn btn-ghost btn-sm" @click="newFolderModal = false">取消</button>
+          <button type="submit" class="btn btn-primary btn-sm">创建文件夹</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 弹窗 2: 重命名文件夹 Modal -->
+  <div class="modal modal-bottom sm:modal-middle" :class="{ 'modal-open': renameFolderModal }">
+    <div class="modal-box rounded-2xl border border-base-300 p-6">
+      <h3 class="font-bold text-base mb-4">重命名文件夹</h3>
+      <form :action="'/folders/' + renameFolderID + '/rename'" method="POST" class="space-y-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text text-xs font-semibold">新名称</span></label>
+          <input type="text" name="name" :value="renameFolderName" required maxlength="64"
+                 class="input input-bordered input-sm w-full" />
+        </div>
+        <div class="modal-action">
+          <button type="button" class="btn btn-ghost btn-sm" @click="renameFolderModal = false">取消</button>
+          <button type="submit" class="btn btn-primary btn-sm">保存名称</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 弹窗 3: 移动文件夹 Modal -->
+  <div class="modal modal-bottom sm:modal-middle" :class="{ 'modal-open': moveFolderModal }">
+    <div class="modal-box rounded-2xl border border-base-300 p-6">
+      <h3 class="font-bold text-base mb-2">移动文件夹</h3>
+      <p class="text-xs text-base-content/50 mb-4">将 <span class="font-bold text-base-content" x-text="moveFolderName"></span> 移动至目标父文件夹：</p>
+      <form :action="'/folders/' + moveFolderID + '/move'" method="POST" class="space-y-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text text-xs font-semibold">目标父文件夹</span></label>
+          <select name="target_parent_id" class="select select-bordered select-sm w-full">
+            <option value="">项目根目录</option>
+            {{range .AllFolders}}
+              <option value="{{.ID}}">{{.Name}}</option>
+            {{end}}
+          </select>
+        </div>
+        <div class="modal-action">
+          <button type="button" class="btn btn-ghost btn-sm" @click="moveFolderModal = false">取消</button>
+          <button type="submit" class="btn btn-primary btn-sm">执行移动</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 弹窗 4: 实时进度条资源上传 Modal -->
+  <div class="modal modal-bottom sm:modal-middle" :class="{ 'modal-open': uploadModal }">
+    <div class="modal-box rounded-2xl border border-base-300 p-6">
+      <h3 class="font-bold text-base mb-1">上传资源文件</h3>
+      <p class="text-xs text-base-content/50 mb-4">单个文件上限 {{.MaxUploadMB}}MB。支持图片、PDF、音视频、Markdown、代码、文本及各类文件。</p>
+
+      <form @submit="handleUpload($event)" class="space-y-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text text-xs font-semibold">选择文件</span></label>
+          <input type="file" required
+                 @change="
+                   uploadFile = $el.files[0];
+                   if(uploadFile){
+                     uploadFileName = uploadFile.name;
+                     uploadFileSize = (uploadFile.size / (1024*1024)).toFixed(2) + ' MB';
+                   }
+                 "
+                 class="file-input file-input-bordered file-input-sm w-full" />
+        </div>
+
+        <template x-if="uploadFile">
+          <div class="p-2.5 rounded-lg bg-base-200/50 border border-base-300/60 text-xs space-y-1">
+            <div class="font-medium text-base-content truncate" x-text="uploadFileName"></div>
+            <div class="text-[11px] text-base-content/50" x-text="'大小: ' + uploadFileSize"></div>
+          </div>
+        </template>
+
+        <!-- 实时上传进度条 -->
+        <template x-if="isUploading">
+          <div class="space-y-1.5 pt-1">
+            <div class="flex justify-between text-xs font-semibold">
+              <span class="text-primary flex items-center gap-1.5">
+                <span class="loading loading-spinner loading-xs"></span>
+                <span>正在上传...</span>
+              </span>
+              <span class="font-mono" x-text="uploadProgress + '%'"></span>
+            </div>
+            <progress class="progress progress-primary w-full h-2" :value="uploadProgress" max="100"></progress>
+          </div>
+        </template>
+
+        <!-- 上传错误展示 -->
+        <template x-if="uploadError">
+          <div class="p-2.5 rounded-lg bg-error/10 border border-error/20 text-error text-xs" x-text="uploadError"></div>
+        </template>
+
+        <div class="modal-action">
+          <button type="button" class="btn btn-ghost btn-sm" :disabled="isUploading" @click="uploadModal = false">取消</button>
+          <button type="submit" class="btn btn-primary btn-sm" :disabled="isUploading || !uploadFile">
+            <span x-text="isUploading ? '上传中...' : '开始上传'"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+function projectFilesComponent() {
+  return {
+    sidebarWidth: parseInt(localStorage.getItem('nd-files-sidebar-width') || '280'),
+    isResizing: false,
+    newFolderModal: false,
+    renameFolderModal: false,
+    renameFolderID: 0,
+    renameFolderName: '',
+    moveFolderModal: false,
+    moveFolderID: 0,
+    moveFolderName: '',
+    uploadModal: false,
+    uploadFile: null,
+    uploadFileName: '',
+    uploadFileSize: '',
+    uploadProgress: 0,
+    isUploading: false,
+    uploadError: '',
+    selectedID: {{if .SelectedItem}}{{.SelectedItem.ID}}{{else}}0{{end}},
+    selectedKind: '{{if .SelectedItem}}{{.SelectedItem.Kind}}{{end}}',
+    selectedTitle: '{{if .SelectedItem}}{{.SelectedItem.Title}}{{end}}',
+    selectedOriginalName: '{{if and .SelectedItem .SelectedItem.OriginalName}}{{.SelectedItem.OriginalName}}{{end}}',
+    selectedSize: '{{if and .SelectedItem .SelectedItem.SizeBytes}}{{humanizeBytes .SelectedItem.SizeBytes}}{{else}}Markdown{{end}}',
+    selectedCreator: '{{if .SelectedItem}}{{.SelectedItem.CreatorName}}{{end}}',
+    selectedColor: '{{if .SelectedItem}}{{.SelectedItem.CreatorColor}}{{else}}#6366f1{{end}}',
+    selectedDate: '{{if .SelectedItem}}{{formatDateTime .SelectedItem.UpdatedAt}}{{end}}',
+    selectedIsImage: {{if and .SelectedItem .SelectedItem.IsImage}}true{{else}}false{{end}},
+    selectedIsPDF: {{if and .SelectedItem .SelectedItem.IsPDF}}true{{else}}false{{end}},
+    selectedIsVideo: {{if and .SelectedItem .SelectedItem.IsVideo}}true{{else}}false{{end}},
+    selectedIsAudio: {{if and .SelectedItem .SelectedItem.IsAudio}}true{{else}}false{{end}},
+    selectedIsTextOrMD: {{if and .SelectedItem .SelectedItem.IsTextOrMarkdown}}true{{else}}false{{end}},
+    selectedIsMD: {{if and .SelectedItem .SelectedItem.IsMarkdown}}true{{else}}false{{end}},
+    pdfSrc: '{{if and .SelectedItem .SelectedItem.IsPDF}}/files/{{.SelectedItem.ID}}{{end}}',
+    activeMarkdownText: '',
+    fileTextContent: '',
+    isLoadingFileText: false,
+    isEditingDoc: false,
+    headings: [],
+
+    init() {
+      if (window.marked && window.hljs) {
+        marked.setOptions({
+          highlight: function(code, lang) {
+            if (lang && hljs.getLanguage(lang)) {
+              try { return hljs.highlight(code, { language: lang }).value; } catch (e) {}
+            }
+            try { return hljs.highlightAuto(code).value; } catch (e) {}
+            return code;
+          },
+          langPrefix: 'hljs language-'
+        });
+      }
+
+      const rawDom = document.getElementById('initial-doc-markdown');
+      if (rawDom) {
+        this.activeMarkdownText = rawDom.value || '';
+      }
+
+      this.$nextTick(() => {
+        this.refreshStage();
+      });
+    },
+
+    stopAllMedia() {
+      document.querySelectorAll('video, audio').forEach(el => {
+        try {
+          el.pause();
+          el.currentTime = 0;
+        } catch (e) {}
+      });
+      this.pdfSrc = '';
+    },
+
+    selectItem(id, kind, title, origName, size, creator, color, date, isImg, isPdf, isVid, isAud, isText, isMd) {
+      this.stopAllMedia();
+      this.selectedID = id;
+      this.selectedKind = kind;
+      this.selectedTitle = title;
+      this.selectedOriginalName = origName;
+      this.selectedSize = size;
+      this.selectedCreator = creator;
+      this.selectedColor = color;
+      this.selectedDate = date;
+      this.selectedIsImage = isImg;
+      this.selectedIsPDF = isPdf;
+      this.selectedIsVideo = isVid;
+      this.selectedIsAudio = isAud;
+      this.selectedIsTextOrMD = isText;
+      this.selectedIsMD = isMd;
+      this.isEditingDoc = false;
+
+      if (isPdf) this.pdfSrc = '/files/' + id;
+
+      if (kind === 'doc') {
+        const dom = document.getElementById('doc-body-' + id);
+        this.activeMarkdownText = dom ? dom.value : '';
+      } else {
+        this.activeMarkdownText = '';
+      }
+
+      this.refreshStage();
+    },
+
+    refreshStage() {
+      if (!this.selectedID) return;
+
+      if (this.selectedKind === 'doc') {
+        this.renderMarkdown(this.activeMarkdownText);
+      } else if (this.selectedKind === 'file' && this.selectedIsTextOrMD) {
+        this.loadFileText(this.selectedID, this.selectedIsMD);
+      }
+    },
+
+    loadFileText(id, isMD) {
+      if (!id) return;
+      this.isLoadingFileText = true;
+      this.fileTextContent = '';
+      fetch('/files/' + id)
+        .then(r => r.text())
+        .then(text => {
+          this.isLoadingFileText = false;
+          if (isMD) {
+            this.activeMarkdownText = text;
+            this.renderMarkdown(text);
+          } else {
+            if (window.hljs) {
+              try {
+                this.fileTextContent = hljs.highlightAuto(text).value;
+              } catch(e) {
+                this.fileTextContent = text;
+              }
+            } else {
+              this.fileTextContent = text;
+            }
+          }
+        })
+        .catch(() => {
+          this.isLoadingFileText = false;
+          this.fileTextContent = '无法读取文件内容';
+        });
+    },
+
+    extractHeadingsFromMarkdown(md) {
+      if (!md) return [];
+      const lines = md.split('\n');
+      const list = [];
+      let index = 0;
+      let inCodeBlock = false;
+      for (let line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('```')) {
+          inCodeBlock = !inCodeBlock;
+          continue;
+        }
+        if (inCodeBlock) continue;
+
+        const match = trimmed.match(/^(#{1,6})\s+(.+)$/);
+        if (match) {
+          const level = match[1].length;
+          const text = match[2].replace(/[#*`_~]/g, '').trim();
+          list.push({
+            id: 'heading-sec-' + index,
+            text: text,
+            level: level
+          });
+          index++;
+        }
+      }
+      return list;
+    },
+
+    renderMarkdown(raw) {
+      if (window.marked) {
+        this.headings = this.extractHeadingsFromMarkdown(raw);
+        let hIdx = 0;
+        const renderer = new marked.Renderer();
+        renderer.heading = function({ text, depth }) {
+          const id = 'heading-sec-' + (hIdx++);
+          return '<h' + depth + ' id=\"' + id + '\">' + text + '</h' + depth + '>';
+        };
+        const html = marked.parse(raw || '', { renderer: renderer });
+        const container = document.getElementById('markdown-render-output');
+        if (container) {
+          container.innerHTML = html;
+        }
+      }
+    },
+
+    scrollToHeading(id) {
+      const container = document.getElementById('doc-scroll-container');
+      const el = document.getElementById(id);
+      if (container && el) {
+        const containerRect = container.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const relativeTop = elRect.top - containerRect.top + container.scrollTop - 24;
+        container.scrollTo({ top: Math.max(0, relativeTop), behavior: 'smooth' });
+      } else if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    },
+
+    startResizing(e) {
+      this.isResizing = true;
+      const startX = e.clientX;
+      const startW = this.sidebarWidth;
+      const onMouseMove = (moveEvent) => {
+        if (!this.isResizing) return;
+        const newW = Math.max(220, Math.min(540, startW + (moveEvent.clientX - startX)));
+        this.sidebarWidth = newW;
+        localStorage.setItem('nd-files-sidebar-width', newW);
+      };
+      const onMouseUp = () => {
+        this.isResizing = false;
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    },
+
+    handleUpload(e) {
+      e.preventDefault();
+      if (!this.uploadFile) return;
+
+      this.isUploading = true;
+      this.uploadProgress = 0;
+      this.uploadError = '';
+
+      const formData = new FormData();
+      formData.append('file', this.uploadFile);
+      {{if .CurrentFolder}}
+        formData.append('folder_id', '{{.CurrentFolder.ID}}');
+      {{end}}
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/projects/{{.Project.ID}}/upload', true);
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+      xhr.setRequestHeader('Accept', 'application/json');
+
+      xhr.upload.onprogress = (evt) => {
+        if (evt.lengthComputable) {
+          this.uploadProgress = Math.round((evt.loaded / evt.total) * 100);
+        }
+      };
+
+      xhr.onload = () => {
+        this.isUploading = false;
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const resp = JSON.parse(xhr.responseText);
+            window.location.href = resp.redirect || '/projects/{{.Project.ID}}/files';
+          } catch(err) {
+            window.location.reload();
+          }
+        } else {
+          try {
+            const resp = JSON.parse(xhr.responseText);
+            this.uploadError = resp.error || '上传失败，文件可能超出限制';
+          } catch(err) {
+            this.uploadError = '上传失败，请检查文件大小或网络';
+          }
+        }
+      };
+
+      xhr.onerror = () => {
+        this.isUploading = false;
+        this.uploadError = '网络中断或请求被拒绝';
+      };
+
+      xhr.send(formData);
+    }
+  };
+}
+</script>
+{{end}}

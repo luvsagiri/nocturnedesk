@@ -1,0 +1,125 @@
+{{define "head"}}
+<link rel="stylesheet" href="/static/vendor/highlight.min.css?v=1.0.0">
+<script src="/static/vendor/marked.min.js?v=1.0.0"></script>
+<script src="/static/vendor/highlight.min.js?v=1.0.0"></script>
+{{end}}
+
+{{define "content"}}
+<div class="max-w-6xl mx-auto space-y-4" x-data="{
+  headings: [],
+  init() {
+    if (window.marked && window.hljs) {
+      marked.setOptions({
+        highlight: function(code, lang) {
+          if (lang && hljs.getLanguage(lang)) {
+            try { return hljs.highlight(code, { language: lang }).value; } catch (e) {}
+          }
+          try { return hljs.highlightAuto(code).value; } catch (e) {}
+          return code;
+        },
+        langPrefix: 'hljs language-'
+      });
+    }
+
+    const raw = document.getElementById('raw-markdown-data').innerText;
+    if (window.marked) {
+      const container = document.getElementById('doc-markdown-body');
+      container.innerHTML = marked.parse(raw);
+      const headingElements = container.querySelectorAll('h1, h2, h3, h4');
+      const list = [];
+      headingElements.forEach((el, index) => {
+        const id = 'heading-' + index;
+        el.id = id;
+        list.push({
+          id: id,
+          text: el.innerText.trim(),
+          level: parseInt(el.tagName.replace('H', ''), 10)
+        });
+      });
+      this.headings = list;
+    }
+  },
+  scrollTo(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+}">
+  <!-- 隐藏的原始 Markdown 内容 -->
+  <pre id="raw-markdown-data" class="hidden">{{if .Item.BodyHTML}}{{.Item.BodyHTML}}{{end}}</pre>
+
+  <!-- 返回与操作栏 -->
+  <div class="flex items-center justify-between p-2.5 rounded-xl nd-surface">
+    <div class="flex items-center gap-1.5 text-xs breadcrumbs py-0">
+      <ul>
+        <li><a href="/projects/{{.Project.ID}}/files" class="text-primary font-medium">{{.Project.Name}}</a></li>
+        {{range .Breadcrumbs}}
+          <li><a href="/projects/{{$.Project.ID}}/files?folder={{.ID}}">{{.Name}}</a></li>
+        {{end}}
+        <li class="font-semibold truncate max-w-xs">{{.Item.Title}}</li>
+      </ul>
+    </div>
+    <div class="flex items-center gap-2">
+      <!-- 下载 .md 文件按钮 -->
+      <a href="/docs/{{.Item.ID}}/download" class="btn btn-outline btn-xs h-7 min-h-0 rounded-lg gap-1" title="下载为 .md 文件">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+        下载 .md
+      </a>
+      <a href="/projects/{{.Project.ID}}/docs/{{.Item.ID}}/edit" class="btn btn-outline btn-xs h-7 min-h-0 rounded-lg gap-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+        编辑
+      </a>
+      <form action="/items/{{.Item.ID}}/delete" method="POST" onsubmit="return confirm('确定要删除这篇文档吗？');" class="m-0">
+        <button type="submit" class="btn btn-ghost btn-xs text-error h-7 min-h-0 rounded-lg">删除</button>
+      </form>
+      <a href="/projects/{{.Project.ID}}/files{{if .Item.FolderID}}?folder={{.Item.FolderID}}&item={{.Item.ID}}{{end}}" class="btn btn-ghost btn-xs h-7 min-h-0 rounded-lg">返回</a>
+    </div>
+  </div>
+
+  <!-- 正文与右侧大纲双栏 -->
+  <div class="flex flex-col lg:flex-row gap-5 items-start">
+    <!-- 主体正文区：严格强制换行防溢出 -->
+    <div class="flex-1 min-w-0 rounded-xl nd-surface p-6 sm:p-8 overflow-hidden">
+      <div class="pb-4 border-b border-base-200">
+        <h1 class="text-2xl font-bold tracking-tight text-base-content mb-2 break-words">{{.Item.Title}}</h1>
+        <div class="flex items-center gap-2.5 text-[11px] text-base-content/50">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full" style="background-color: {{.Item.CreatorColor}}"></span>
+            <span class="font-medium text-base-content/80">{{.Item.CreatorName}}</span>
+          </div>
+          <span>·</span>
+          <span>更新于 {{formatDateTime .Item.UpdatedAt}}</span>
+        </div>
+      </div>
+
+      <!-- Markdown 渲染目标 (Typora 排版 + Highlight.js 代码高亮) -->
+      <article id="doc-markdown-body" class="markdown-body prose max-w-none pt-5 leading-relaxed text-base-content text-sm break-words overflow-x-hidden">
+        {{if .Item.BodyHTML}}{{safeHTML .Item.BodyHTML}}{{end}}
+      </article>
+    </div>
+
+    <!-- 右侧目录大纲 (TOC) -->
+    <div class="w-56 flex-shrink-0 rounded-xl nd-surface p-4 hidden lg:block sticky top-16 max-h-[80vh] overflow-y-auto">
+      <div class="text-[11px] font-bold text-base-content/50 uppercase tracking-wider mb-2.5">目录大纲</div>
+      <template x-if="headings.length === 0">
+        <div class="text-[11px] text-base-content/30 italic">暂无标题层级</div>
+      </template>
+      <div class="space-y-1.5 text-xs">
+        <template x-for="item in headings" :key="item.id">
+          <a href="javascript:void(0)"
+             @click="scrollTo(item.id)"
+             class="block truncate text-base-content/70 hover:text-primary transition-colors py-0.5"
+             :class="{
+               'font-bold text-base-content pl-0': item.level === 1,
+               'pl-2 text-base-content/80': item.level === 2,
+               'pl-4 text-base-content/60 text-[11px]': item.level === 3,
+               'pl-6 text-base-content/50 text-[10px]': item.level >= 4
+             }"
+             x-text="item.text"></a>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}

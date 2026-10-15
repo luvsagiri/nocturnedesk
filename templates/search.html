@@ -1,0 +1,48 @@
+{{define "content"}}
+<div class="max-w-4xl mx-auto space-y-6">
+  <div class="card bg-base-100 shadow border border-base-300">
+    <div class="card-body p-6">
+      <h1 class="text-xl font-bold tracking-tight mb-4">全站搜索</h1>
+      <form action="/search" method="GET" class="flex gap-2">
+        <input type="text" name="q" value="{{.Query}}" placeholder="输入关键词搜索文档、日历、看板卡片或资源..."
+               autofocus class="input input-bordered w-full focus:input-primary text-sm" />
+        <button type="submit" class="btn btn-primary btn-sm px-6">搜 索</button>
+      </form>
+    </div>
+  </div>
+
+  {{if .Query}}
+    <div class="flex items-center justify-between text-xs text-base-content/60 px-1">
+      <span>搜索关键词：“<strong class="text-base-content">{{.Query}}</strong>”，共找到 <strong>{{len .Results}}</strong> 条可见结果</span>
+    </div>
+
+    {{if .Results}}
+      <div class="space-y-3">
+        {{range .Results}}
+        <div class="card bg-base-100 shadow hover:shadow-md transition-shadow border border-base-300">
+          <div class="card-body p-5">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="badge badge-sm {{if eq .Kind "doc"}}badge-primary{{else if eq .Kind "file"}}badge-secondary{{else if eq .Kind "calendar"}}badge-accent{{else}}badge-ghost{{end}}">
+                {{if eq .Kind "doc"}}文档{{else if eq .Kind "file"}}资源{{else if eq .Kind "calendar"}}日历{{else if eq .Kind "card"}}看板{{end}}
+              </span>
+              <a href="/projects/{{.ProjectID}}/files" class="link link-hover text-xs text-primary font-medium">{{.ProjectName}}</a>
+            </div>
+            <h3 class="font-bold text-base">
+              <a href="{{.Link}}" class="link link-hover text-base-content hover:text-primary transition-colors">{{.Title}}</a>
+            </h3>
+            {{if .Snippet}}
+              <p class="text-xs text-base-content/70 mt-1 line-clamp-2 leading-relaxed">{{.Snippet}}</p>
+            {{end}}
+          </div>
+        </div>
+        {{end}}
+      </div>
+    {{else}}
+      <div class="card bg-base-100 shadow border border-base-300 p-12 text-center text-base-content/50">
+        <svg class="w-12 h-12 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 1114 0z"></path></svg>
+        <p class="text-sm">未在可见项目中找到与 “{{.Query}}” 相关的内容</p>
+      </div>
+    {{end}}
+  {{end}}
+</div>
+{{end}}

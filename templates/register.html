@@ -1,0 +1,56 @@
+{{define "content"}}
+<div class="min-h-[70vh] flex items-center justify-center">
+  <div class="card w-full max-w-md bg-base-100 shadow-xl border border-base-300">
+    <div class="card-body">
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-600 text-white font-black text-xl mb-3 shadow">
+          ND
+        </div>
+        <h2 class="text-2xl font-bold tracking-tight">注册新账号</h2>
+        <p class="text-sm text-base-content/60 mt-1">开放自助注册，无需审批</p>
+      </div>
+
+      <form action="/register" method="POST" class="space-y-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">用户名</span>
+            <span class="label-text-alt text-base-content/50">3-32位字母/数字/下划线</span>
+          </label>
+          <input type="text" name="username" required autofocus placeholder="输入用户名"
+                 pattern="[a-zA-Z0-9_-]{3,32}" title="允许英文字母、数字、下划线及减号，长度 3-32 位"
+                 class="input input-bordered w-full focus:input-primary" />
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">显示名称</span>
+            <span class="label-text-alt text-base-content/50">将在团队中公开展示</span>
+          </label>
+          <input type="text" name="display_name" required placeholder="输入公开显示名称"
+                 maxlength="64" class="input input-bordered w-full focus:input-primary" />
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">登录密码</span>
+            <span class="label-text-alt text-base-content/50">非空即可</span>
+          </label>
+          <input type="password" name="password" required placeholder="请输入登录密码"
+                 class="input input-bordered w-full focus:input-primary" />
+        </div>
+
+        <div class="form-control mt-6">
+          <button type="submit" class="btn btn-primary w-full shadow">注 册</button>
+        </div>
+      </form>
+
+      <div class="divider my-4 text-xs text-base-content/40">或者</div>
+
+      <div class="text-center text-sm">
+        <span class="text-base-content/70">已有账号？</span>
+        <a href="/login" class="link link-primary font-medium ml-1">直接登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
