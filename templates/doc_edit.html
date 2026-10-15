@@ -1,0 +1,97 @@
+{{define "head"}}
+<script src="/static/vendor/marked.min.js"></script>
+{{end}}
+
+{{define "content"}}
+<div class="max-w-5xl mx-auto space-y-4" x-data="{
+  activeTab: 'edit',
+  content: `{{if and .Item .Item.BodyHTML}}{{.Item.BodyHTML}}{{end}}`,
+  previewHTML: '',
+  updatePreview() {
+    if (window.marked) {
+      this.previewHTML = marked.parse(this.content || '');
+    }
+  },
+  insertSyntax(before, after) {
+    const textarea = this.$refs.editorTextarea;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = textarea.value.substring(start, end);
+    const replacement = before + (selected || '文本') + (after || '');
+    textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
+    this.content = textarea.value;
+    textarea.focus();
+    textarea.setSelectionRange(start + before.length, start + replacement.length - (after ? after.length : 0));
+  }
+}">
+  <!-- 返回与面包屑 -->
+  <div class="flex items-center justify-between p-2.5 rounded-xl nd-surface">
+    <div class="flex items-center gap-1.5 text-xs breadcrumbs py-0">
+      <ul>
+        <li><a href="/projects/{{.Project.ID}}/files" class="text-primary font-medium">{{.Project.Name}}</a></li>
+        {{range .Breadcrumbs}}
+          <li><a href="/projects/{{$.Project.ID}}/files?folder={{.ID}}">{{.Name}}</a></li>
+        {{end}}
+        <li class="font-semibold truncate max-w-xs">{{if .Item}}编辑：{{.Item.Title}}{{else}}新建 Markdown 文档{{end}}</li>
+      </ul>
+    </div>
+    <a href="/projects/{{.Project.ID}}/files{{if .FolderID}}?folder={{.FolderID}}{{end}}" class="btn btn-ghost btn-xs h-7 min-h-0 rounded-lg">放弃返回</a>
+  </div>
+
+  <div class="rounded-xl nd-surface p-5 sm:p-7">
+    <form id="doc-form" action="{{if .Item}}/items/{{.Item.ID}}/update{{else}}/projects/{{.Project.ID}}/docs{{end}}" method="POST" class="space-y-4">
+      {{if .FolderID}}
+        <input type="hidden" name="folder_id" value="{{.FolderID}}" />
+      {{end}}
+
+      <div class="form-control">
+        <input type="text" name="title" required autofocus placeholder="输入文档标题"
+               value="{{if .Item}}{{.Item.Title}}{{end}}" maxlength="128"
+               class="input input-ghost text-xl font-bold tracking-tight px-0 focus:outline-none focus:border-b-2 focus:border-primary border-transparent rounded-none w-full" />
+      </div>
+
+      <!-- 编辑/预览模式切换与语法快捷工具栏 -->
+      <div class="flex items-center justify-between gap-2 p-1.5 bg-base-200/50 rounded-lg border border-base-300 text-xs flex-wrap">
+        <div class="flex items-center gap-1 flex-wrap">
+          <button type="button" class="btn btn-ghost btn-xs h-6 min-h-0 px-2 font-bold" @click="insertSyntax('# ', '')">H1</button>
+          <button type="button" class="btn btn-ghost btn-xs h-6 min-h-0 px-2 font-bold" @click="insertSyntax('## ', '')">H2</button>
+          <button type="button" class="btn btn-ghost btn-xs h-6 min-h-0 px-2 font-bold" @click="insertSyntax('### ', '')">H3</button>
+          <span class="text-base-content/20">|</span>
+          <button type="button" class="btn btn-ghost btn-xs h-6 min-h-0 px-2 font-bold" @click="insertSyntax('**', '**')">B</button>
+          <button type="button" class="btn btn-ghost btn-xs h-6 min-h-0 px-2 italic" @click="insertSyntax('*', '*')">I</button>
+          <button type="button" class="btn btn-ghost btn-xs h-6 min-h-0 px-2" @click="insertSyntax('> ', '')">引用</button>
+          <button type="button" class="btn btn-ghost btn-xs h-6 min-h-0 px-2 font-mono" @click="insertSyntax('```\n', '\n```')">代码块</button>
+          <button type="button" class="btn btn-ghost btn-xs h-6 min-h-0 px-2" @click="insertSyntax('- ', '')">• 列表</button>
+          <button type="button" class="btn btn-ghost btn-xs h-6 min-h-0 px-2" @click="insertSyntax('[链接描述](', ')')">链接</button>
+        </div>
+
+        <div class="join bg-base-100 rounded-md border border-base-300/60 p-0.5">
+          <button type="button" class="btn btn-xs join-item h-6 min-h-0 px-2.5 rounded-sm"
+                  :class="{ 'btn-active font-bold': activeTab === 'edit' }"
+                  @click="activeTab = 'edit'">编写</button>
+          <button type="button" class="btn btn-xs join-item h-6 min-h-0 px-2.5 rounded-sm"
+                  :class="{ 'btn-active font-bold': activeTab === 'preview' }"
+                  @click="activeTab = 'preview'; updatePreview();">预览</button>
+        </div>
+      </div>
+
+      <!-- Markdown 编辑器 -->
+      <div x-show="activeTab === 'edit'" class="form-control">
+        <textarea name="body_html" rows="18" required placeholder="编写 Markdown 文档内容..."
+                  x-model="content" x-ref="editorTextarea"
+                  class="textarea textarea-bordered w-full font-mono text-xs leading-relaxed focus:textarea-primary rounded-lg min-h-[380px]"></textarea>
+      </div>
+
+      <!-- Markdown 实时预览区 -->
+      <div x-show="activeTab === 'preview'" class="p-4 sm:p-6 rounded-lg border border-base-300 min-h-[380px] bg-base-100 overflow-y-auto max-w-full overflow-x-hidden">
+        <article class="prose max-w-none text-sm leading-relaxed text-base-content break-words" x-html="previewHTML"></article>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-base-200">
+        <a href="/projects/{{.Project.ID}}/files{{if .FolderID}}?folder={{.FolderID}}{{end}}" class="btn btn-ghost btn-xs h-8 min-h-0 px-3 rounded-lg">取消</a>
+        <button type="submit" class="btn btn-primary btn-xs h-8 min-h-0 px-5 rounded-lg shadow-xs">保存文档</button>
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}

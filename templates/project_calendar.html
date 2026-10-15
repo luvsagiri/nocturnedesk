@@ -1,0 +1,133 @@
+{{define "content"}}
+<div class="space-y-4">
+  <!-- 日历主体与操作区 (顶部已整合至 48px 全局导航栏，最大化垂直工作空间) -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+    <!-- 左侧 7 列: 月视图网格 -->
+    <div class="lg:col-span-7 rounded-xl nd-surface">
+      <div class="p-4 sm:p-5">
+        <!-- 月份切换 -->
+        <div class="flex items-center justify-between pb-3.5 border-b border-base-200">
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-bold tracking-tight text-base-content">{{.MonthView.Year}} 年 {{.MonthView.Month}} 月</h2>
+            <a href="/projects/{{.Project.ID}}/calendar" class="btn btn-ghost btn-xs rounded-md">回到今天</a>
+          </div>
+          <div class="flex items-center gap-1">
+            <a href="/projects/{{.Project.ID}}/calendar?month={{.MonthView.PrevMonth}}&day={{.MonthView.SelectedDay}}"
+               class="btn btn-ghost btn-xs btn-square rounded-md h-7 w-7" title="上个月">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+            </a>
+            <span class="text-xs font-mono px-1 font-semibold text-base-content/70">{{.MonthView.YearMonth}}</span>
+            <a href="/projects/{{.Project.ID}}/calendar?month={{.MonthView.NextMonth}}&day={{.MonthView.SelectedDay}}"
+               class="btn btn-ghost btn-xs btn-square rounded-md h-7 w-7" title="下个月">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- 星期表头 (周一至周日) -->
+        <div class="grid grid-cols-7 gap-1 text-center py-2 text-xs font-semibold text-base-content/50 border-b border-base-200">
+          <span>一</span>
+          <span>二</span>
+          <span>三</span>
+          <span>四</span>
+          <span>五</span>
+          <span class="text-primary/70">六</span>
+          <span class="text-error/70">日</span>
+        </div>
+
+        <!-- 日期单元格网格 -->
+        <div class="grid grid-cols-7 gap-1 pt-2">
+          {{range .MonthView.Days}}
+          <a href="/projects/{{$.Project.ID}}/calendar?month={{$.MonthView.YearMonth}}&day={{.DateString}}"
+             class="min-h-[68px] p-1.5 rounded-lg border transition-all flex flex-col justify-between group
+                    {{if eq .DateString $.MonthView.SelectedDay}}ring-2 ring-primary border-primary bg-primary/5{{else if .IsCurrentMonth}}bg-base-100 hover:border-primary/40 border-base-200{{else}}bg-base-200/30 border-transparent opacity-40{{end}}">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono font-bold leading-none
+                           {{if .IsToday}}w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center -m-0.5 shadow-xs{{else if eq .DateString $.MonthView.SelectedDay}}text-primary{{else if not .IsCurrentMonth}}text-base-content/40{{end}}">
+                {{.DayNumber}}
+              </span>
+
+              {{if .Entries}}
+                <span class="text-[10px] text-base-content/50 font-mono font-medium">{{len .Entries}}条</span>
+              {{end}}
+            </div>
+
+            <!-- 参与者颜色圆点与悬停显示 -->
+            <div class="flex items-center gap-1 flex-wrap pt-1 min-h-[14px]">
+              {{range .Contributors}}
+                <span class="w-2 h-2 rounded-full shadow-xs" style="background-color: {{.Color}};"
+                      title="{{.UserName}} 记录了进展"></span>
+              {{end}}
+            </div>
+          </a>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧 5 列: 选中日期详情 & 我的记录编辑 -->
+    <div class="lg:col-span-5 space-y-4">
+      <!-- 选中日期全员记录展示卡 -->
+      <div class="rounded-xl nd-surface p-4 sm:p-5">
+        <div class="flex items-center justify-between pb-3 border-b border-base-200">
+          <h2 class="text-xs font-bold tracking-tight flex items-center gap-1.5 text-base-content">
+            <svg class="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            <span>{{.MonthView.SelectedDay}} 成员记录</span>
+          </h2>
+          <span class="badge badge-sm badge-ghost font-mono text-[10px]">{{len .MonthView.DayEntries}} 条记录</span>
+        </div>
+
+        <div class="divide-y divide-base-200/60 max-h-[340px] overflow-y-auto pt-1">
+          {{if .MonthView.DayEntries}}
+            {{range .MonthView.DayEntries}}
+            <div class="py-3 space-y-1">
+              <div class="flex items-center justify-between text-xs">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full" style="background-color: {{.UserColor}};"></span>
+                  <span class="font-bold text-xs text-base-content">{{.UserName}}</span>
+                  {{if eq .UserID $.CurrentUser.ID}}
+                    <span class="badge badge-xs badge-primary">我自己</span>
+                  {{end}}
+                </div>
+                <span class="text-base-content/40 text-[10px]">{{formatDateTime .UpdatedAt}}</span>
+              </div>
+              <div class="text-xs whitespace-pre-wrap leading-relaxed text-base-content/85 pl-3 border-l-2" style="border-color: {{.UserColor}};">{{.Content}}</div>
+            </div>
+            {{end}}
+          {{else}}
+            <div class="py-10 text-center text-base-content/40">
+              <svg class="w-8 h-8 mx-auto mb-1.5 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+              <p class="text-xs">当天暂无任何成员提交记录</p>
+            </div>
+          {{end}}
+        </div>
+      </div>
+
+      <!-- 我当天的纯文本记录编辑卡 -->
+      <div class="rounded-xl nd-surface p-4 sm:p-5">
+        <h3 class="text-xs font-bold tracking-tight flex items-center justify-between mb-2">
+          <span>记录我当天的进展</span>
+          <span class="text-[11px] font-normal text-base-content/40">纯文本多行</span>
+        </h3>
+
+        <form action="/projects/{{.Project.ID}}/calendar" method="POST" class="space-y-3">
+          <input type="hidden" name="day" value="{{.MonthView.SelectedDay}}" />
+          <input type="hidden" name="month" value="{{.MonthView.YearMonth}}" />
+
+          <div class="form-control">
+            <textarea name="content" rows="4" required placeholder="记录今天完成了什么、遇到的问题或明日计划..."
+                      class="textarea textarea-bordered w-full text-xs leading-relaxed focus:textarea-primary">{{.MonthView.MyDayContent}}</textarea>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[10px] text-base-content/40">清空内容提交即可删除</span>
+            <button type="submit" class="btn btn-primary btn-xs px-4 rounded-md shadow-xs">
+              {{if .MonthView.MyDayContent}}更新记录{{else}}提交记录{{end}}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}

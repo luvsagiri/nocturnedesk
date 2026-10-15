@@ -1,0 +1,52 @@
+{{define "content"}}
+<div class="max-w-xl mx-auto my-8">
+  <div class="card bg-base-100 shadow-xl border border-base-300">
+    <div class="card-body p-6 sm:p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <a href="/" class="btn btn-circle btn-ghost btn-sm" title="返回项目列表">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+        </a>
+        <h1 class="text-2xl font-bold tracking-tight">新建项目</h1>
+      </div>
+
+      <form action="/projects" method="POST" class="space-y-5" x-data="{ selectedColor: '#6366f1' }">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-medium">项目名称</span></label>
+          <input type="text" name="name" required autofocus placeholder="输入项目名称"
+                 maxlength="64" class="input input-bordered w-full focus:input-primary" />
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text font-medium">项目简介</span></label>
+          <textarea name="description" rows="3" placeholder="简要说明该项目的目标与范围（可选）"
+                    class="textarea textarea-bordered w-full text-sm"></textarea>
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text font-medium">项目主题色</span></label>
+          <input type="hidden" name="color" :value="selectedColor" />
+          <div class="flex flex-wrap gap-2.5 pt-1">
+            {{range .PaletteColors}}
+            <button type="button" @click="selectedColor = '{{.}}'"
+                    class="w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center"
+                    :class="selectedColor === '{{.}}' ? 'border-base-content scale-110 shadow' : 'border-transparent hover:scale-105'"
+                    style="background-color: {{.}}">
+              <svg x-show="selectedColor === '{{.}}'" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+            {{end}}
+          </div>
+        </div>
+
+        <div class="divider my-4"></div>
+
+        <div class="flex justify-end gap-3">
+          <a href="/" class="btn btn-ghost btn-sm">取 消</a>
+          <button type="submit" class="btn btn-primary btn-sm shadow px-6">创建项目</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{{end}}

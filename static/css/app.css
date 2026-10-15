@@ -1,0 +1,346 @@
+/* NocturneDesk Modern Aesthetic Theme & Design System */
+:root {
+  color-scheme: light dark;
+  --aurora-1: rgba(99, 102, 241, 0.09);
+  --aurora-2: rgba(236, 72, 153, 0.07);
+  --aurora-3: rgba(56, 189, 248, 0.08);
+}
+
+[data-theme="dark"] {
+  --aurora-1: rgba(99, 102, 241, 0.16);
+  --aurora-2: rgba(168, 85, 247, 0.13);
+  --aurora-3: rgba(14, 165, 233, 0.11);
+}
+
+/* 彻底解决滚动条出现导致页面变窄跳动的问题：稳定预留滚动条空间 (问题1) */
+html {
+  scrollbar-gutter: stable;
+  overflow-y: auto;
+}
+
+/* 背景呼吸流动微动效 (绚丽动态元素) */
+@keyframes auroraPulse {
+  0%, 100% {
+    background-position: 0% 0%, 100% 0%, 50% 100%, 0 0;
+  }
+  50% {
+    background-position: 8% 6%, 92% 10%, 48% 92%, 0 0;
+  }
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 15% 15%, var(--aurora-1) 0px, transparent 55%),
+    radial-gradient(at 85% 10%, var(--aurora-2) 0px, transparent 50%),
+    radial-gradient(at 50% 85%, var(--aurora-3) 0px, transparent 60%),
+    radial-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 28px 28px;
+  background-attachment: fixed;
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  animation: auroraPulse 18s ease-in-out infinite;
+  transition: background-color 0.25s ease;
+}
+
+[data-theme="dark"] body {
+  background-color: #0b0f19;
+  background-image: 
+    radial-gradient(at 20% 15%, var(--aurora-1) 0px, transparent 50%),
+    radial-gradient(at 80% 20%, var(--aurora-2) 0px, transparent 45%),
+    radial-gradient(at 50% 80%, var(--aurora-3) 0px, transparent 55%),
+    radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+}
+
+main {
+  flex: 1;
+}
+
+/* 全站统一卡片与面板表面基调 (统一夜间模式色调，杜绝不协调色块) */
+.glass-panel, .card, .nd-surface {
+  background-color: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+[data-theme="dark"] .glass-panel,
+[data-theme="dark"] .card,
+[data-theme="dark"] .nd-surface {
+  background-color: #111827 !important;
+  border: 1px solid rgba(55, 65, 81, 0.6) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* 卡片悬浮立体微动效 */
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+}
+[data-theme="dark"] .hover-lift:hover {
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+}
+
+/* 彻底重构输入框聚焦效果：杜绝生硬双描边黑线，改用温润微光呼吸环 */
+input, textarea, select,
+.input, .textarea, .select {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+input:focus, textarea:focus, select:focus,
+.input:focus, .textarea:focus, .select:focus,
+.input:focus-within, .input:focus-visible {
+  outline: none !important;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18) !important;
+}
+
+/* 修复夜间模式搜索框及输入框颜色异常 (问题1解决) */
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select,
+[data-theme="dark"] .input,
+[data-theme="dark"] .textarea,
+[data-theme="dark"] .select {
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+  border-color: rgba(75, 85, 99, 0.7) !important;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: rgba(156, 163, 175, 0.6) !important;
+}
+[data-theme="dark"] input:-webkit-autofill,
+[data-theme="dark"] input:-webkit-autofill:hover,
+[data-theme="dark"] input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f9fafb !important;
+  -webkit-box-shadow: 0 0 0px 1000px #1f2937 inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Typora 风格高颜值 Markdown 样式系统 (问题5解决) */
+.markdown-body, .prose, article {
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  white-space: normal !important;
+  max-width: 100% !important;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+/* 标题样式：大字号、粗体、底边浅分割线、预留呼吸间距防止跳转被横栏遮住 (问题4解决) */
+.markdown-body h1, .prose h1 {
+  font-size: 1.85rem !important;
+  font-weight: 800 !important;
+  line-height: 1.25 !important;
+  margin-top: 1.5rem !important;
+  margin-bottom: 0.85rem !important;
+  padding-bottom: 0.4rem !important;
+  border-bottom: 1px solid rgba(156, 163, 175, 0.25) !important;
+  scroll-margin-top: 3rem !important; /* 彻底杜绝顶部遮挡 */
+}
+.markdown-body h2, .prose h2 {
+  font-size: 1.45rem !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  margin-top: 1.35rem !important;
+  margin-bottom: 0.65rem !important;
+  padding-bottom: 0.3rem !important;
+  border-bottom: 1px solid rgba(156, 163, 175, 0.2) !important;
+  scroll-margin-top: 3rem !important;
+}
+.markdown-body h3, .prose h3 {
+  font-size: 1.2rem !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  margin-top: 1.15rem !important;
+  margin-bottom: 0.5rem !important;
+  scroll-margin-top: 3rem !important;
+}
+.markdown-body h4, .prose h4 {
+  font-size: 1.05rem !important;
+  font-weight: 600 !important;
+  margin-top: 1rem !important;
+  margin-bottom: 0.4rem !important;
+  scroll-margin-top: 3rem !important;
+}
+
+/* 引用块样式 (Typora 标志性紫蓝左粗边线与微光底色) */
+.markdown-body blockquote, .prose blockquote {
+  border-left: 4px solid #6366f1 !important;
+  background: rgba(99, 102, 241, 0.05) !important;
+  padding: 0.6rem 1.1rem !important;
+  margin: 1rem 0 !important;
+  border-radius: 0 0.5rem 0.5rem 0 !important;
+  color: rgba(107, 114, 128, 0.9) !important;
+  font-style: italic !important;
+}
+[data-theme="dark"] .markdown-body blockquote,
+[data-theme="dark"] .prose blockquote {
+  background: rgba(99, 102, 241, 0.12) !important;
+  color: rgba(209, 213, 219, 0.9) !important;
+}
+
+/* 列表样式 */
+.markdown-body ul, .prose ul {
+  list-style-type: disc !important;
+  padding-left: 1.5rem !important;
+  margin: 0.6rem 0 !important;
+}
+.markdown-body ol, .prose ol {
+  list-style-type: decimal !important;
+  padding-left: 1.5rem !important;
+  margin: 0.6rem 0 !important;
+}
+.markdown-body li, .prose li {
+  margin: 0.25rem 0 !important;
+}
+
+/* 分割线 */
+.markdown-body hr, .prose hr {
+  border: 0 !important;
+  border-top: 1px solid rgba(156, 163, 175, 0.25) !important;
+  margin: 1.5rem 0 !important;
+}
+
+/* 行内代码与代码块 */
+.markdown-body p, .prose p {
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  margin: 0.75rem 0 !important;
+}
+.markdown-body pre, .prose pre {
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background-color: #282c34 !important;
+  color: #abb2bf !important;
+  padding: 0.85rem 1.1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 0.85rem;
+  margin: 1rem 0 !important;
+}
+.markdown-body code, .prose code {
+  word-break: break-word !important;
+  white-space: pre-wrap !important;
+  font-size: 0.85em;
+  padding: 0.15em 0.35em;
+  border-radius: 0.25rem;
+  background-color: rgba(99, 102, 241, 0.08);
+  color: #6366f1;
+}
+[data-theme="dark"] .markdown-body code,
+[data-theme="dark"] .prose code {
+  background-color: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+}
+.markdown-body pre code, .prose pre code {
+  background-color: transparent !important;
+  padding: 0 !important;
+  color: inherit !important;
+  font-size: inherit !important;
+}
+
+/* 表格样式 */
+.markdown-body table, .prose table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+.markdown-body th, .prose th {
+  background-color: rgba(156, 163, 175, 0.12);
+  font-weight: 700;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgba(156, 163, 175, 0.25);
+}
+.markdown-body td, .prose td {
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgba(156, 163, 175, 0.25);
+}
+
+/* User letter avatar */
+.avatar-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-weight: 600;
+  color: #ffffff;
+  user-select: none;
+  text-transform: uppercase;
+}
+
+/* Slim Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.35);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.6);
+}
+
+/* SortableJS drag & drop ghost */
+.sortable-ghost {
+  opacity: 0.35;
+  background-color: rgba(99, 102, 241, 0.15) !important;
+  border: 2px dashed #6366f1 !important;
+  border-radius: 0.75rem;
+}
+.sortable-chosen {
+  cursor: grabbing;
+}
+
+/* Split-Pane Resizer Divider */
+.gutter-col {
+  cursor: col-resize;
+  width: 5px;
+  background-color: transparent;
+  transition: background-color 0.2s ease;
+  user-select: none;
+}
+.gutter-col:hover, .gutter-col.resizing {
+  background-color: #6366f1;
+}
+
+/* 搜索框专用输入间距，杜绝图标与文字重合 (问题1解决) */
+.nav-search-input {
+  padding-left: 2rem !important;
+}
+
+/* 确保下拉菜单始终置顶，杜绝被卡片和看板列裁剪遮挡 */
+.dropdown-content {
+  z-index: 100 !important;
+}
+
+/* Global Floating Toast Animation */
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-enter {
+  animation: toastSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

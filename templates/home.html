@@ -1,0 +1,120 @@
+{{define "content"}}
+<div class="space-y-8" x-data="{ joinModalOpen: false, createModalOpen: false }">
+  <!-- 首页头部与操作区 -->
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-base-300">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">项目卡片墙</h1>
+      <p class="text-sm text-base-content/60 mt-1">查看和协作你创建或参与的项目</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <button class="btn btn-outline btn-sm gap-2" @click="joinModalOpen = true">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+        凭邀请码加入
+      </button>
+      <a href="/projects/new" class="btn btn-primary btn-sm gap-2 shadow">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+        新建项目
+      </a>
+    </div>
+  </div>
+
+  <!-- 分组 1: 我创建的 -->
+  <section class="space-y-4">
+    <div class="flex items-center gap-2">
+      <h2 class="text-lg font-bold tracking-tight">我创建的项目</h2>
+      <span class="badge badge-sm badge-ghost">{{len .CreatedProjects}}</span>
+    </div>
+
+    {{if .CreatedProjects}}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {{range .CreatedProjects}}
+        <a href="/projects/{{.ID}}/files" class="card bg-base-100 shadow hover:shadow-md transition-all border border-base-300 group">
+          <div class="card-body p-5">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full" style="background-color: {{.Color}}"></span>
+                <h3 class="font-bold text-base group-hover:text-primary transition-colors line-clamp-1">{{.Name}}</h3>
+              </div>
+              <span class="badge badge-sm badge-outline text-xs">创建者</span>
+            </div>
+            <p class="text-xs text-base-content/70 line-clamp-2 min-h-[2rem] mb-3">
+              {{if .Description}}{{.Description}}{{else}}<span class="text-base-content/40 italic">暂无项目简介</span>{{end}}
+            </p>
+            <div class="flex items-center justify-between text-xs text-base-content/60 pt-3 border-t border-base-200">
+              <div class="flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                <span>{{.MemberCount}} 位成员</span>
+              </div>
+              <span>{{formatDate .UpdatedAt}}</span>
+            </div>
+          </div>
+        </a>
+        {{end}}
+      </div>
+    {{else}}
+      <div class="p-6 rounded-xl border border-dashed border-base-300 text-center text-sm text-base-content/50">
+        你还没有创建过项目，点击右上角「新建项目」开始
+      </div>
+    {{end}}
+  </section>
+
+  <!-- 分组 2: 我加入的 -->
+  <section class="space-y-4">
+    <div class="flex items-center gap-2">
+      <h2 class="text-lg font-bold tracking-tight">我加入的项目</h2>
+      <span class="badge badge-sm badge-ghost">{{len .JoinedProjects}}</span>
+    </div>
+
+    {{if .JoinedProjects}}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {{range .JoinedProjects}}
+        <a href="/projects/{{.ID}}/files" class="card bg-base-100 shadow hover:shadow-md transition-all border border-base-300 group">
+          <div class="card-body p-5">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full" style="background-color: {{.Color}}"></span>
+                <h3 class="font-bold text-base group-hover:text-primary transition-colors line-clamp-1">{{.Name}}</h3>
+              </div>
+              <span class="badge badge-sm badge-ghost text-xs">成员</span>
+            </div>
+            <p class="text-xs text-base-content/70 line-clamp-2 min-h-[2rem] mb-3">
+              {{if .Description}}{{.Description}}{{else}}<span class="text-base-content/40 italic">暂无项目简介</span>{{end}}
+            </p>
+            <div class="flex items-center justify-between text-xs text-base-content/60 pt-3 border-t border-base-200">
+              <div class="flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                <span>{{.MemberCount}} 位成员</span>
+              </div>
+              <span>{{formatDate .UpdatedAt}}</span>
+            </div>
+          </div>
+        </a>
+        {{end}}
+      </div>
+    {{else}}
+      <div class="p-6 rounded-xl border border-dashed border-base-300 text-center text-sm text-base-content/50">
+        你还没有加入其他成员的项目，可通过「凭邀请码加入」参与团队协作
+      </div>
+    {{end}}
+  </section>
+
+  <!-- 凭邀请码加入弹窗 (Alpine Modal) -->
+  <div class="modal modal-bottom sm:modal-middle" :class="{ 'modal-open': joinModalOpen }">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg mb-4">用邀请码加入项目</h3>
+      <form action="/projects/join" method="POST" class="space-y-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-medium">项目邀请码</span></label>
+          <input type="text" name="invite_code" required placeholder="6-8 位项目邀请码"
+                 class="input input-bordered w-full uppercase" />
+          <label class="label"><span class="label-text-alt text-base-content/50">向项目创建者索取邀请码</span></label>
+        </div>
+        <div class="modal-action">
+          <button type="button" class="btn btn-ghost btn-sm" @click="joinModalOpen = false">取消</button>
+          <button type="submit" class="btn btn-primary btn-sm">立即加入</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{{end}}

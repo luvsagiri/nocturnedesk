@@ -1,0 +1,210 @@
+{{define "content"}}
+<div class="space-y-6" x-data="{ activeTab: window.location.hash.replace('#', '') || 'profile' }">
+  <!-- 顶部个人基本信息卡 -->
+  <div class="card bg-base-100 shadow border border-base-300">
+    <div class="card-body p-6 flex flex-col md:flex-row items-center gap-6">
+      <div class="avatar">
+        <div class="w-20 h-20 rounded-full ring ring-primary/20 ring-offset-base-100 ring-offset-2 overflow-hidden flex items-center justify-center">
+          {{if .CurrentUser.AvatarKey}}
+            <img src="/files/avatar?key={{.CurrentUser.AvatarKey}}" alt="{{.CurrentUser.DisplayName}}" class="w-full h-full object-cover" />
+          {{else}}
+            <span class="avatar-letter w-full h-full text-2xl" style="background-color: #6366f1;">
+              {{firstChar .CurrentUser.DisplayName}}
+            </span>
+          {{end}}
+        </div>
+      </div>
+      <div class="flex-1 text-center md:text-left">
+        <h1 class="text-2xl font-bold tracking-tight">{{.CurrentUser.DisplayName}}</h1>
+        <p class="text-sm text-base-content/60 mt-1">@{{.CurrentUser.Username}} · 注册于 {{formatDate .CurrentUser.CreatedAt}}</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-sm btn-outline" @click="activeTab = 'profile'; window.location.hash = 'profile'"
+                :class="{ 'btn-primary': activeTab === 'profile' }">个人设置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 选项卡导航 -->
+  <div class="tabs tabs-boxed bg-base-100 p-1 border border-base-300 w-fit">
+    <a class="tab tab-sm" :class="{ 'tab-active': activeTab === 'profile' }"
+       @click="activeTab = 'profile'; window.location.hash = 'profile'">个人设置</a>
+    <a class="tab tab-sm" :class="{ 'tab-active': activeTab === 'cards' }"
+       @click="activeTab = 'cards'; window.location.hash = 'cards'">我名下的卡片</a>
+    <a class="tab tab-sm" :class="{ 'tab-active': activeTab === 'calendar' }"
+       @click="activeTab = 'calendar'; window.location.hash = 'calendar'">我的日历记录</a>
+    <a class="tab tab-sm" :class="{ 'tab-active': activeTab === 'docs' }"
+       @click="activeTab = 'docs'; window.location.hash = 'docs'">我创建的文档</a>
+  </div>
+
+  <!-- Tab 1: 个人资料与修改密码 -->
+  <div x-show="activeTab === 'profile'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- 修改资料 / 上传头像 -->
+    <div class="card bg-base-100 shadow border border-base-300">
+      <div class="card-body">
+        <h2 class="card-title text-base font-bold mb-4">修改个人资料</h2>
+        <form action="/me/profile" method="POST" enctype="multipart/form-data" class="space-y-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-medium">显示名称</span></label>
+            <input type="text" name="display_name" value="{{.CurrentUser.DisplayName}}" required
+                   class="input input-bordered w-full" />
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">更换头像</span>
+              <span class="label-text-alt text-base-content/50">支持 JPG/PNG/WEBP，≤ 2MB</span>
+            </label>
+            <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp"
+                   class="file-input file-input-bordered file-input-sm w-full" />
+          </div>
+
+          <div class="form-control mt-4">
+            <button type="submit" class="btn btn-primary btn-sm w-full">保存资料</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 修改密码 -->
+    <div class="card bg-base-100 shadow border border-base-300">
+      <div class="card-body">
+        <h2 class="card-title text-base font-bold mb-4">修改密码</h2>
+        <form action="/me/password" method="POST" class="space-y-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-medium">原密码</span></label>
+            <input type="password" name="old_password" required placeholder="当前原密码"
+                   class="input input-bordered w-full" />
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">新密码</span>
+              <span class="label-text-alt text-base-content/50">非空即可</span>
+            </label>
+            <input type="password" name="new_password" required placeholder="新密码"
+                   class="input input-bordered w-full" />
+          </div>
+
+          <div class="form-control mt-4">
+            <button type="submit" class="btn btn-primary btn-sm w-full">更新密码</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: 我名下的卡片 -->
+  <div x-show="activeTab === 'cards'" class="card bg-base-100 shadow border border-base-300">
+    <div class="card-body p-6">
+      <h2 class="card-title text-base font-bold mb-4">我名下的卡片（跨项目）</h2>
+      {{if .Cards}}
+        <div class="overflow-x-auto">
+          <table class="table table-zebra w-full text-sm">
+            <thead>
+              <tr>
+                <th>所属项目</th>
+                <th>卡片标题</th>
+                <th>状态</th>
+                <th>截止日期</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .Cards}}
+              <tr>
+                <td class="font-medium">
+                  <a href="/projects/{{.ProjectID}}/board" class="link link-hover text-primary">{{.ProjectName}}</a>
+                </td>
+                <td>{{.Title}}</td>
+                <td>
+                  <span class="badge badge-sm {{if eq .Status "todo"}}badge-ghost{{else if eq .Status "doing"}}badge-info{{else}}badge-success{{end}}">
+                    {{if eq .Status "todo"}}待处理{{else if eq .Status "doing"}}进行中{{else}}已完成{{end}}
+                  </span>
+                </td>
+                <td>
+                  {{if .DueDate}}
+                    <span class="{{if isOverdue .DueDate}}text-error font-semibold{{end}}">{{.DueDate}}</span>
+                  {{else}}
+                    <span class="text-base-content/40">-</span>
+                  {{end}}
+                </td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+      {{else}}
+        <div class="text-center py-12 text-base-content/50">
+          <svg class="w-12 h-12 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+          <p>当前暂无分配给你的卡片</p>
+        </div>
+      {{end}}
+    </div>
+  </div>
+
+  <!-- Tab 3: 我的日历记录 -->
+  <div x-show="activeTab === 'calendar'" class="card bg-base-100 shadow border border-base-300">
+    <div class="card-body p-6">
+      <h2 class="card-title text-base font-bold mb-4">我的日历记录（按日期倒序）</h2>
+      {{if .CalendarEntries}}
+        <div class="space-y-4">
+          {{range .CalendarEntries}}
+          <div class="p-4 rounded-lg bg-base-200/50 border border-base-300/60">
+            <div class="flex items-center justify-between mb-2">
+              <span class="badge badge-sm badge-outline font-mono">{{.Day}}</span>
+              <a href="/projects/{{.ProjectID}}/calendar?month={{slice .Day 0 7}}" class="link link-hover text-xs text-primary font-medium">
+                {{.ProjectName}} &rarr;
+              </a>
+            </div>
+            <p class="text-sm whitespace-pre-wrap leading-relaxed text-base-content/85">{{.Content}}</p>
+          </div>
+          {{end}}
+        </div>
+      {{else}}
+        <div class="text-center py-12 text-base-content/50">
+          <svg class="w-12 h-12 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <p>暂无日历记录，进入项目日历即可记录当天的进展</p>
+        </div>
+      {{end}}
+    </div>
+  </div>
+
+  <!-- Tab 4: 我创建的文档 -->
+  <div x-show="activeTab === 'docs'" class="card bg-base-100 shadow border border-base-300">
+    <div class="card-body p-6">
+      <h2 class="card-title text-base font-bold mb-4">我创建的文档（跨项目）</h2>
+      {{if .Docs}}
+        <div class="overflow-x-auto">
+          <table class="table table-zebra w-full text-sm">
+            <thead>
+              <tr>
+                <th>所属项目</th>
+                <th>文档标题</th>
+                <th>最后更新</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .Docs}}
+              <tr>
+                <td class="font-medium">
+                  <a href="/projects/{{.ProjectID}}/files" class="link link-hover text-primary">{{.ProjectName}}</a>
+                </td>
+                <td>
+                  <a href="/projects/{{.ProjectID}}/docs/{{.ID}}" class="link link-hover font-semibold">{{.Title}}</a>
+                </td>
+                <td class="text-xs text-base-content/60">{{formatDateTime .UpdatedAt}}</td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+      {{else}}
+        <div class="text-center py-12 text-base-content/50">
+          <svg class="w-12 h-12 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          <p>暂无创建的文档</p>
+        </div>
+      {{end}}
+    </div>
+  </div>
+</div>
+{{end}}
